@@ -10,7 +10,7 @@ def send_snmp_request(target_ip, target_port, packet_size):
     msg_value = b"\x02\x04" + b"\x00" * 4
 
     # create a socket object
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
         # set a timeout value for the socket
